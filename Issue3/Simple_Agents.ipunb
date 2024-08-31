@@ -1,0 +1,405 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyPfbZiW23qJh/xMhE7FgZl1",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/FastPrinciples/Code-Examples/blob/main/Simple_Agents.ipynb\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "collapsed": true,
+        "id": "n4i1fF9ZKLAG"
+      },
+      "outputs": [],
+      "source": [
+        "!pip install -qU langchain openai crewai"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from IPython.display import Markdown"
+      ],
+      "metadata": {
+        "id": "EgoQEBVKN5GQ"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import os\n",
+        "from getpass import getpass\n",
+        "\n",
+        "openai_api_key = os.getenv(\"OPENAI_API_KEY\", None) or getpass(\"Enter OpenAI API key:\")"
+      ],
+      "metadata": {
+        "id": "7w3P0LnRKna9"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from crewai import Agent, Task, Crew, Process\n",
+        "from langchain_openai import ChatOpenAI"
+      ],
+      "metadata": {
+        "collapsed": true,
+        "id": "e_jZIAYmKceo"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "model = \"gpt-3.5-turbo\""
+      ],
+      "metadata": {
+        "id": "_XTeADnNKm-_"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "llm = ChatOpenAI(openai_api_key=openai_api_key, model=model)"
+      ],
+      "metadata": {
+        "id": "PEe7r11uLzFm"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from crewai import Agent, Task, Crew, Process\n",
+        "from langchain_openai import ChatOpenAI\n",
+        "model = \"gpt-3.5-turbo\"\n",
+        "llm = ChatOpenAI(openai_api_key=openai_api_key, model=model)\n",
+        "planner = Agent(\n",
+        "    role=\"Content Planner\",\n",
+        "    goal=\"Plan engaging and factually accurate content on {topic}\",\n",
+        "    backstory=\"You're working on planning a blog article about the topic: {topic}. You collect information that helps the audience learn something and make informed decisions. Your work is the basis for the Content Writer to write an article on this topic.\",\n",
+        "    allow_delegation=False,\n",
+        "    verbose=True,\n",
+        "    llm=llm\n",
+        ")\n",
+        "writer = Agent(\n",
+        "   role=\"Content Writer\",\n",
+        "   goal=\"Write engaging and factually accurate content on {topic}\",\n",
+        "   backstory=\"You're working on writing a blog article about the topic: {topic}. You use the information provided by the Content Planner to write an article that is engaging and factually accurate.\",\n",
+        "   allow_delegation=False,\n",
+        "    verbose=True,\n",
+        "    llm=llm\n",
+        ")\n",
+        "editor = Agent(\n",
+        "    role=\"Content Reviewer\",\n",
+        "    goal=\"Review content for accuracy and engagement\",\n",
+        "    backstory=r\"You're working on reviewing a blog article about the topic: {topic}. You ensure that the content is factually accurate and engaging for the audience.\",\n",
+        "    allow_delegation=False,\n",
+        "    verbose=True,\n",
+        "    llm=llm\n",
+        ")\n",
+        "plan = Task(\n",
+        "    description=\"1. Prioritize the latest trends, key players, and noteworthy news on {topic}.\\n2. Identify the target audience, considering their interests and pain points.\\n3. Develop a detailed content outline including an introduction, key points, and a call to action.\\n4. Include SEO keywords and relevant data or sources.\",\n",
+        "    expected_output=\"A comprehensive content plan document with an outline, audience analysis, SEO keywords, and resources.\",\n",
+        "    agent=planner\n",
+        ")\n",
+        "write = Task(\n",
+        "    description=\"1. Use the content plan to craft a compelling blog post on {topic}.\\n2. Incorporate SEO keywords naturally.\\n3. Sections/Subtitles are properly named in an engaging manner.\\n4. Ensure the post is structured with an engaging introduction, insightful body, and a summarizing conclusion.\\n5. Proofread for grammatical errors and alignment with the brand's voice.\",\n",
+        "    expected_output=\"A well-written blog post in markdown format, ready for publication, each section should have 2 or 3 paragraphs.\",\n",
+        "    agent=writer\n",
+        ")\n",
+        "edit= Task(\n",
+        "    description=\"Proofread the given blog post for grammatical errors and alignment with the brand's voice.\",\n",
+        "    expected_output=\"A well-written blog post in markdown format, ready for publication, each section should have 2 or 3 paragraphs.\",\n",
+        "    agent=editor\n",
+        ")\n",
+        "crew = Crew(\n",
+        "    agents=[planner, writer, editor],\n",
+        "    tasks=[plan, write, edit],\n",
+        "    verbose=0\n",
+        ")\n",
+        "result = crew.kickoff(\n",
+        "    inputs={\"topic\": \"Artificial Intelligents\"}\n",
+        ")"
+      ],
+      "metadata": {
+        "id": "dKKkzeHkL8T_"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "result = crew.kickoff(\n",
+        "    inputs={\"topic\": \"Artificial Intelligents\"}\n",
+        ")"
+      ],
+      "metadata": {
+        "id": "BpbTWBjVMNyo"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "print(result.raw)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "F9Eo38f0OfGw",
+        "outputId": "e604f64e-6eba-4885-e4bf-68ce2231c4f7"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "# The Future of Artificial Intelligence: Trends, Players, and News\n",
+            "\n",
+            "## Introduction\n",
+            "\n",
+            "Artificial Intelligence (AI) has revolutionized various industries, from healthcare to finance, with its ability to analyze data and make intelligent decisions. As AI continues to evolve, staying updated on the latest trends and key players in the field is crucial for professionals and businesses alike. The future of AI holds immense potential for innovation and growth, making it essential for individuals to stay informed and engaged with the latest developments in the industry.\n",
+            "\n",
+            "## Latest Trends in Artificial Intelligence\n",
+            "\n",
+            "### Machine Learning Advancements\n",
+            "One of the most significant trends in AI is the continuous advancements in machine learning algorithms. These algorithms enable AI systems to learn from data, improve performance, and make predictions without being explicitly programmed. From recommendation systems to image recognition, machine learning is at the core of many AI applications, driving efficiency and accuracy in decision-making processes.\n",
+            "\n",
+            "### Ethical Considerations in AI Development\n",
+            "With the increasing use of AI in decision-making processes, ethical considerations have become a major focus in the industry. Issues such as bias in algorithms, data privacy, and transparency in AI decision-making are critical areas that require attention to ensure fair and responsible AI development. By addressing these ethical considerations, professionals can contribute to the development of AI technology that benefits society as a whole.\n",
+            "\n",
+            "### AI in Healthcare, Finance, and Other Sectors\n",
+            "AI is transforming the healthcare industry by improving diagnostics, personalized treatment plans, and patient care. In finance, AI is used for fraud detection, risk assessment, and algorithmic trading, enhancing operational efficiency and risk management practices. The potential of AI extends to various sectors, driving innovation and efficiency in processes, ultimately leading to improved outcomes and experiences for individuals and businesses.\n",
+            "\n",
+            "### Autonomous Vehicles and Robotics\n",
+            "Advancements in AI have led to the development of autonomous vehicles and robots that can perform tasks independently. From self-driving cars to robotic assistants, AI-powered systems are reshaping transportation and automation industries, offering new possibilities for efficiency and safety. These advancements in autonomous technology highlight the transformative power of AI in revolutionizing traditional industries and creating new opportunities for growth and development.\n",
+            "\n",
+            "## Key Players in the AI Industry\n",
+            "\n",
+            "### Google's DeepMind\n",
+            "Google's DeepMind is known for its breakthroughs in AI research, particularly in areas such as reinforcement learning and neural networks. The company's AI algorithms have been applied to various fields, showcasing the potential of AI for solving complex problems and driving innovation in research and development. By collaborating with industry partners, Google's DeepMind continues to push the boundaries of AI technology and explore new applications for AI in diverse industries.\n",
+            "\n",
+            "### IBM Watson\n",
+            "IBM Watson is a leading AI platform that offers cognitive computing capabilities for businesses and industries. With applications in healthcare, finance, and cybersecurity, IBM Watson continues to innovate and provide cutting-edge AI solutions to its clients, empowering organizations to harness the power of AI for strategic decision-making and operational efficiency. Through ongoing research and development, IBM Watson remains at the forefront of AI technology, driving advancements in AI applications across various sectors.\n",
+            "\n",
+            "### Microsoft Azure AI\n",
+            "Microsoft Azure AI provides a range of AI services and tools for developers to build intelligent applications. From natural language processing to computer vision, Microsoft Azure AI empowers businesses to leverage AI technologies for enhanced productivity and innovation, enabling organizations to create AI-driven solutions that drive growth and competitive advantage. With scalable and cost-effective AI services, Microsoft Azure AI is a key player in the AI industry, supporting businesses in their digital transformation journey and AI adoption strategies.\n",
+            "\n",
+            "### Amazon Web Services AI\n",
+            "Amazon Web Services AI offers a comprehensive suite of AI services, including machine learning, speech recognition, and predictive analytics. With scalable and cost-effective AI solutions, Amazon Web Services AI enables businesses to deploy AI applications efficiently, driving innovation and growth in diverse industries. By providing a robust AI infrastructure and tools, Amazon Web Services AI supports organizations in developing AI-driven solutions that address complex business challenges and drive operational excellence.\n",
+            "\n",
+            "### OpenAI\n",
+            "OpenAI is a research organization dedicated to advancing AI technology in a safe and beneficial manner. Known for its work in natural language processing and reinforcement learning, OpenAI collaborates with industry partners and researchers to explore the potential of AI for positive impact, driving innovation and ethical AI development. By promoting transparency and responsible AI deployment, OpenAI plays a key role in shaping the future of AI technology and ensuring that AI benefits society as a whole, contributing to the advancement of AI technology for the betterment of humanity.\n",
+            "\n",
+            "## Noteworthy News in Artificial Intelligence\n",
+            "\n",
+            "### Recent Breakthroughs in Natural Language Processing\n",
+            "Recent advancements in natural language processing have led to significant improvements in AI's ability to understand and generate human language. From chatbots to language translation, AI applications in natural language processing continue to evolve, offering new possibilities for communication and interaction, driving innovation in language-based AI applications.\n",
+            "\n",
+            "### AI Applications in Cybersecurity\n",
+            "AI is playing a crucial role in cybersecurity by detecting and preventing cyber threats in real-time. With AI-powered tools for threat intelligence and anomaly detection, organizations can enhance their security posture and mitigate risks from evolving cyber attacks, ensuring the protection of sensitive data and critical infrastructure.\n",
+            "\n",
+            "### AI-Driven Personalized Marketing Strategies\n",
+            "AI is transforming marketing strategies by enabling personalized customer experiences and targeted campaigns. Through data analysis and predictive modeling, AI algorithms can identify consumer preferences, optimize marketing content, and drive engagement for businesses across industries, enhancing customer relationships and driving business growth through personalized marketing initiatives.\n",
+            "\n",
+            "### Regulatory Updates in AI Technology\n",
+            "As AI technologies continue to advance, regulatory frameworks and ethical guidelines are being developed to ensure responsible AI deployment. From data protection laws to algorithm accountability, regulatory updates aim to address the ethical implications of AI use and promote transparency in AI development, fostering trust and accountability in AI applications for the benefit of individuals and society as a whole.\n",
+            "\n",
+            "## Conclusion\n",
+            "\n",
+            "In conclusion, the future of Artificial Intelligence is filled with exciting trends, key players, and noteworthy news that shape the industry's landscape. By staying informed and engaged with AI developments, professionals, businesses, and enthusiasts can leverage the potential of AI for innovation, efficiency, and growth. As AI continues to evolve, it is essential to embrace the opportunities it offers and navigate the challenges it presents, making informed decisions and contributing to the advancement of AI technology. Remember to subscribe to our newsletter for regular AI updates, engage in discussions on social media platforms, and explore further reading resources to deepen your knowledge on AI advancements. The future of Artificial Intelligence is here, and it's up to us to shape it for the better.\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from langchain_openai import ChatOpenAI\n",
+        "from langchain.agents import tool\n",
+        "from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder\n",
+        "from langchain.agents.format_scratchpad.openai_tools import format_to_openai_tool_messages\n",
+        "from langchain.agents.output_parsers.openai_tools import OpenAIToolsAgentOutputParser\n",
+        "from langchain.agents import AgentExecutor\n",
+        "\n",
+        "# Load the LL\n",
+        "\n",
+        "# Define Agent Descriptions\n",
+        "PLANNER_DESCRIPTION = \"\"\"\n",
+        "Role: Content Planner\n",
+        "Goal: Plan engaging and factually accurate content on the given topic\n",
+        "Backstory: You're an experienced content strategist working on planning a blog article.\n",
+        "You collect information that helps the audience learn something and make informed decisions.\n",
+        "Your work is the basis for the Content Writer to write an article on this topic.\n",
+        "\"\"\"\n",
+        "\n",
+        "WRITER_DESCRIPTION = \"\"\"\n",
+        "Role: Content Writer\n",
+        "Goal: Write engaging and factually accurate content based on the provided plan\n",
+        "Backstory: You're a skilled writer tasked with creating a blog article.\n",
+        "You use the information provided by the Content Planner to write an article\n",
+        "that is engaging, informative, and factually accurate.\n",
+        "\"\"\"\n",
+        "\n",
+        "EDITOR_DESCRIPTION = \"\"\"\n",
+        "Role: Content Reviewer\n",
+        "Goal: Review content for accuracy, engagement, and polish\n",
+        "Backstory: You're an experienced editor working on reviewing and refining blog articles.\n",
+        "You ensure that the content is factually accurate, engaging for the audience,\n",
+        "and polished to a high standard.\n",
+        "\"\"\"\n",
+        "\n",
+        "# Define Tools with Task Instructions\n",
+        "@tool\n",
+        "def plan_content(topic: str) -> str:\n",
+        "    \"\"\"\n",
+        "    Plan content for a blog post on the given topic.\n",
+        "    Task Instructions:\n",
+        "    1. Identify the latest trends and key players related to the topic.\n",
+        "    2. Determine the target audience and their interests.\n",
+        "    3. Develop a detailed content outline with an introduction, key points, and a conclusion.\n",
+        "    4. Suggest relevant data sources or examples to include.\n",
+        "    \"\"\"\n",
+        "    return f\"Content plan created for the topic: {topic}\"\n",
+        "\n",
+        "@tool\n",
+        "def write_content(plan: str) -> str:\n",
+        "    \"\"\"\n",
+        "    Write content based on the given plan.\n",
+        "    Task Instructions:\n",
+        "    1. Follow the content plan to craft a compelling blog post.\n",
+        "    2. Ensure the post has an engaging introduction, informative body, and strong conclusion.\n",
+        "    3. Use clear and concise language appropriate for the target audience.\n",
+        "    4. Incorporate relevant examples, data, or case studies to support key points.\n",
+        "    \"\"\"\n",
+        "    return f\"Blog post written based on the plan: {plan}\"\n",
+        "\n",
+        "@tool\n",
+        "def review_content(content: str) -> str:\n",
+        "    \"\"\"\n",
+        "    Review and edit the given content.\n",
+        "    Task Instructions:\n",
+        "    1. Check for factual accuracy and consistency throughout the article.\n",
+        "    2. Ensure the content flows logically and engages the reader.\n",
+        "    3. Proofread for grammar, spelling, and punctuation errors.\n",
+        "    4. Suggest improvements for clarity, style, and overall impact.\n",
+        "    \"\"\"\n",
+        "    return f\"Content reviewed and edited: {content}\"\n",
+        "\n",
+        "tools = [plan_content, write_content, review_content]\n",
+        "\n",
+        "# Create Prompt\n",
+        "prompt = ChatPromptTemplate.from_messages([\n",
+        "    (\"system\", \"\"\"You are an AI assistant tasked with creating a blog post. You have three roles:\n",
+        "\n",
+        "{planner_description}\n",
+        "\n",
+        "{writer_description}\n",
+        "\n",
+        "{editor_description}\n",
+        "\n",
+        "Use the appropriate tool for each stage of the content creation process.\n",
+        "Always start with planning, then move to writing, and finish with reviewing.\"\"\"),\n",
+        "    (\"user\", \"{input}\"),\n",
+        "    MessagesPlaceholder(variable_name=\"agent_scratchpad\"),\n",
+        "])\n",
+        "\n",
+        "# Bind tools to LLM\n",
+        "llm_with_tools = llm.bind_tools(tools)\n",
+        "\n",
+        "# Create the Agent\n",
+        "agent = (\n",
+        "    {\n",
+        "        \"input\": lambda x: x[\"input\"],\n",
+        "        \"planner_description\": lambda _: PLANNER_DESCRIPTION,\n",
+        "        \"writer_description\": lambda _: WRITER_DESCRIPTION,\n",
+        "        \"editor_description\": lambda _: EDITOR_DESCRIPTION,\n",
+        "        \"agent_scratchpad\": lambda x: format_to_openai_tool_messages(x[\"intermediate_steps\"]),\n",
+        "    }\n",
+        "    | prompt\n",
+        "    | llm_with_tools\n",
+        "    | OpenAIToolsAgentOutputParser()\n",
+        ")\n",
+        "\n",
+        "# Create the Agent Executor\n",
+        "agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)\n",
+        "\n",
+        "# Run the agent\n",
+        "topic = \"AI in Healthcare\"\n",
+        "result = agent_executor.invoke({\"input\": f\"Create a blog post about {topic}\"})\n",
+        "print(result['output'])\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "5sDhaqW9VwHX",
+        "outputId": "0f63c2ac-1e59-4b61-d6ab-5773ac860840"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "\n",
+            "\n",
+            "\u001b[1m> Entering new AgentExecutor chain...\u001b[0m\n",
+            "\u001b[32;1m\u001b[1;3m\n",
+            "Invoking: `plan_content` with `{'topic': 'AI in Healthcare'}`\n",
+            "\n",
+            "\n",
+            "\u001b[0m\u001b[36;1m\u001b[1;3mContent plan created for the topic: AI in Healthcare\u001b[0m\u001b[32;1m\u001b[1;3m\n",
+            "Invoking: `write_content` with `{'plan': 'AI in Healthcare'}`\n",
+            "\n",
+            "\n",
+            "\u001b[0m\u001b[33;1m\u001b[1;3mBlog post written based on the plan: AI in Healthcare\u001b[0m\u001b[32;1m\u001b[1;3m\n",
+            "Invoking: `review_content` with `{'content': 'Blog post written based on the plan: AI in Healthcare'}`\n",
+            "\n",
+            "\n",
+            "\u001b[0m\u001b[38;5;200m\u001b[1;3mContent reviewed and edited: Blog post written based on the plan: AI in Healthcare\u001b[0m\u001b[32;1m\u001b[1;3mI have created a blog post about \"AI in Healthcare.\" The content has been planned, written, and reviewed to ensure accuracy, engagement, and polish.\u001b[0m\n",
+            "\n",
+            "\u001b[1m> Finished chain.\u001b[0m\n",
+            "I have created a blog post about \"AI in Healthcare.\" The content has been planned, written, and reviewed to ensure accuracy, engagement, and polish.\n"
+          ]
+        }
+      ]
+    }
+  ]
+}
